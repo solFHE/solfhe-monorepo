@@ -7,7 +7,7 @@ extract_links_from_chrome metodu, Chrome'un geçmiş veritabanından son 5 URL'y
 analyze_link metodu, her bir linki ayrıştırır ve içindeki anlamlı kelimeleri (özellikle blockchain ağı isimlerini) sayar.
 get_most_common_word ve to_json metotları, en sık kullanılan kelimeyi bulur ve JSON formatında çıktı üretir.
 run metodu, sürekli çalışan bir döngü içinde her 60 saniyede bir yeni linkleri kontrol eder. */
-// Baturalp Güven
+
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
@@ -25,8 +25,6 @@ use solana_sdk::{
     pubkey::Pubkey,
 };
 use solana_client::rpc_client::RpcClient;
-use spl_token::native_mint;
-use spl_associated_token_account::instruction as spl_associated_token_instruction;
 use spl_memo;
 
 const BLOCKCHAIN_NETWORKS: [&str; 20] = [
