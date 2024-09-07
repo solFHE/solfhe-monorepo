@@ -19,13 +19,13 @@ use url::Url;
 use sha2::{Sha256, Digest};
 use base64::{Engine as _, engine::general_purpose};
 use solana_sdk::{
-    signature::{Keypair, Signer},
+    signature::{Keypair, Signer, Signature},
     transaction::Transaction,
     system_instruction,
     pubkey::Pubkey,
-    rent::Rent,
 };
 use solana_client::rpc_client::RpcClient;
+use solana_transaction_status::UiTransactionEncoding;
 use spl_memo;
 
 const BLOCKCHAIN_NETWORKS: [&str; 20] = [
@@ -118,6 +118,10 @@ fn zk_decompress(compressed_data: &str) -> Result<String, Box<dyn std::error::Er
     Ok(hex::encode(bytes))
 }
 
+fn create_solana_account() -> Keypair {
+    Keypair::new()
+}
+
 fn airdrop_sol(client: &RpcClient, pubkey: &Pubkey, amount: u64) -> Result<(), Box<dyn std::error::Error>> {
     let sig = client.request_airdrop(pubkey, amount)?;
     client.confirm_transaction(&sig)?;
@@ -161,7 +165,7 @@ fn transfer_compressed_hash(
     payer: &Keypair,
     to: &Pubkey,
     compressed_hash: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<Signature, Box<dyn std::error::Error>> {
     ensure_minimum_balance(client, &payer.pubkey(), 1_000_000_000)?; // Ensure 1 SOL minimum
 
     let rent = client.get_minimum_balance_for_rent_exemption(0)?;
@@ -181,11 +185,11 @@ fn transfer_compressed_hash(
     let signature = client.send_and_confirm_transaction(&transaction)?;
     println!("Successfully transferred compressed hash. Transaction signature: {}", signature);
 
-    Ok(())
+    Ok(signature)
 }
 
-fn retrieve_and_decompress_hash(client: &RpcClient, signature: &str) -> Result<Value, Box<dyn std::error::Error>> {
-    let transaction = client.get_transaction(signature, solana_transaction_status::UiTransactionEncoding::Json)?;
+fn retrieve_and_decompress_hash(client: &RpcClient, signature: &Signature) -> Result<Value, Box<dyn std::error::Error>> {
+    let transaction = client.get_transaction(signature, UiTransactionEncoding::Json)?;
     
     if let Some(meta) = transaction.transaction.meta {
         if let Some(log_messages) = meta.log_messages {
@@ -244,19 +248,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             println!("{}", compressed_result);
 
                             match transfer_compressed_hash(&client, &account1, &account2.pubkey(), &compressed_result) {
-                                Ok(()) => {
+                                Ok(signature) => {
                                     println!("Successfully transferred hash");
-                                    // Retrieve the last transaction signature
-                                    if let Ok(signatures) = client.get_signatures_for_address(&account1.pubkey()) {
-                                        if let Some(latest_signature) = signatures.first() {
-                                            match retrieve_and_decompress_hash(&client, &latest_signature.signature) {
-                                                Ok(decompressed_json) => {
-                                                    println!("Retrieved and decompressed JSON data:");
-                                                    println!("{}", serde_json::to_string_pretty(&decompressed_json)?);
-                                                },
-                                                Err(e) => println!("Error retrieving and decompressing hash: {}", e),
-                                            }
-                                        }
+                                    match retrieve_and_decompress_hash(&client, &signature) {
+                                        Ok(decompressed_json) => {
+                                            println!("Retrieved and decompressed JSON data:");
+                                            println!("{}", serde_json::to_string_pretty(&decompressed_json)?);
+                                        },
+                                        Err(e) => println!("Error retrieving and decompressing hash: {}", e),
                                     }
                                 },
                                 Err(e) => println!("Error during hash transfer: {}", e),
