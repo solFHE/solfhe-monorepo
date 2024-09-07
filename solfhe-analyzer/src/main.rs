@@ -124,30 +124,53 @@ fn create_solana_account() -> Keypair {
 fn airdrop_sol(client: &RpcClient, pubkey: &Pubkey, amount: u64) -> Result<(), Box<dyn std::error::Error>> {
     let sig = client.request_airdrop(pubkey, amount)?;
     client.confirm_transaction(&sig)?;
-    println!("Airdropped {} lamports", amount);
+    println!("Airdrop request sent for {} lamports", amount);
+    
+    thread::sleep(Duration::from_secs(5));
     
     let balance = client.get_balance(pubkey)?;
-    println!("Current balance: {} lamports", balance);
+    println!("Current balance after airdrop: {} lamports", balance);
+    
+    if balance == 0 {
+        return Err("Airdrop failed: Balance is still 0".into());
+    }
     
     Ok(())
+}
+
+fn ensure_minimum_balance(client: &RpcClient, pubkey: &Pubkey, minimum_balance: u64) -> Result<(), Box<dyn std::error::Error>> {
+    let mut attempts = 0;
+    while attempts < 3 {
+        let balance = client.get_balance(pubkey)?;
+        if balance >= minimum_balance {
+            println!("Sufficient balance: {} lamports", balance);
+            return Ok(());
+        }
+        
+        println!("Insufficient balance: {} lamports. Attempting airdrop...", balance);
+        if let Err(e) = airdrop_sol(client, pubkey, minimum_balance - balance) {
+            println!("Airdrop attempt failed: {}. Retrying...", e);
+        }
+        
+        attempts += 1;
+        thread::sleep(Duration::from_secs(5));
+    }
+    
+    Err("Failed to ensure minimum balance after multiple attempts".into())
 }
 
 fn transfer_compressed_hash(
     client: &RpcClient,
     payer: &Keypair,
-    from: &Pubkey,
     to: &Pubkey,
     compressed_hash: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let balance = client.get_balance(&payer.pubkey())?;
-    println!("Current balance before transfer: {} lamports", balance);
+    ensure_minimum_balance(client, &payer.pubkey(), 1_000_000_000)?; // Ensure 1 SOL minimum
 
-    if balance < 5000 {
-        return Err("Insufficient balance for transfer".into());
-    }
+    let rent = client.get_minimum_balance_for_rent_exemption(0)?;
+    let transfer_amount = rent + 1000; // Transfer rent + 1000 lamports
 
-    let transfer_amount = 1000; // Transfer 1000 lamports (approximately 0.000001 SOL)
-    let transfer_ix = system_instruction::transfer(from, to, transfer_amount);
+    let transfer_ix = system_instruction::transfer(&payer.pubkey(), to, transfer_amount);
     let memo_ix = spl_memo::build_memo(compressed_hash.as_bytes(), &[&payer.pubkey()]);
     
     let recent_blockhash = client.get_latest_blockhash()?;
@@ -168,7 +191,6 @@ fn transfer_compressed_hash(
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Connect to Solana localnet
     let client = RpcClient::new("http://localhost:8899".to_string());
     
     let account1 = create_solana_account();
@@ -177,8 +199,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Account 1 public key: {}", account1.pubkey());
     println!("Account 2 public key: {}", account2.pubkey());
     
-    // Airdrop on localnet
-    airdrop_sol(&client, &account1.pubkey(), 1_000_000_000)?;
+    // Ensure minimum balance for account1
+    ensure_minimum_balance(&client, &account1.pubkey(), 1_000_000_000)?;
     
     let mut links = Vec::new();
     let mut word_counter = HashMap::new();
@@ -207,7 +229,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             println!("\nSolfhe Result (ZK compressed):");
                             println!("{}", compressed_result);
 
-                            match transfer_compressed_hash(&client, &account1, &account1.pubkey(), &account2.pubkey(), &compressed_result) {
+                            match transfer_compressed_hash(&client, &account1, &account2.pubkey(), &compressed_result) {
                                 Ok(_) => println!("Successfully transferred hash"),
                                 Err(e) => println!("Error during hash transfer: {}", e),
                             }

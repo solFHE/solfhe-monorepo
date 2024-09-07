@@ -41,6 +41,58 @@ build/Release
 # Dependency directories
 node_modules/
 jspm_packages/
+# Ignore the Solana test ledger directory
+test-ledger/
+snapshot/
+# Ignore any other Solana ledger-related directories (if multiple ledgers are used)
+ledger/
+localnet-ledger/
+solana-ledger/
+
+# Ignore any other specific Solana directories that may be used for temporary files
+*.log
+*.bak
+*.pid
+*.tmp
+
+# Ignore temporary test files (for instance, if you run multiple test validators)
+*.log
+*.bak
+*.out
+*.tmp
+
+# Ignore snapshots and validator keys
+snapshot/
+accounts/
+validator-keypair.json
+
+# Ignore possible database files created by Solana test-validator
+*.sqlite
+*.db
+*.sqlite-shm
+*.sqlite-wal
+
+# Ignore other temporary files created during testing
+__pycache__/
+*.pyc
+*.pyo
+*.swp
+*.swo
+*.DS_Store
+
+# Rust-specific ignores (Cargo, build artifacts, etc.)
+/target/
+/Cargo.lock
+/.idea/
+/.vscode/
+/node_modules/
+
+# Ignore specific test configuration files or artifacts (adjust according to your needs)
+*.rs.bk
+debug.log
+logs/
+
+
 
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
