@@ -9,6 +9,7 @@ get_most_common_word ve to_json metotları, en sık kullanılan kelimeyi bulur v
 run metodu, sürekli çalışan bir döngü içinde her 60 saniyede bir yeni linkleri kontrol eder. */
 
 
+
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
@@ -31,7 +32,7 @@ use solana_transaction_status::UiTransactionEncoding;
 use spl_memo;
 
 const BLOCKCHAIN_NETWORKS: [&str; 20] = [
-    "bitcoin", "ethereum", "scroll", "polkadot", "solana", "zk-lokomotive”", "cosmos",
+    "bitcoin", "ethereum", "scroll", "polkadot", "solana", "zk-lokomotive", "cosmos",
     "algorand", "mina", "chainlink", "superteam", "aave", "compound", "maker",
     "polygon", "binance", "tron", "wormhole", "stellar", "filecoin"
 ];
@@ -108,8 +109,6 @@ fn get_most_common_word(word_counter: &HashMap<String, u32>) -> Option<(String, 
         .map(|(word, count)| (word.clone(), *count))
 }
 
-
-
 fn zk_compress(data: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(data);
@@ -170,6 +169,7 @@ fn transfer_compressed_hash(
     payer: &Keypair,
     to: &Pubkey,
     compressed_hash: &str,
+    original_json: &Value,  // Yeni parametre
 ) -> Result<Signature, Box<dyn std::error::Error>> {
     ensure_minimum_balance(client, &payer.pubkey(), 1_000_000_000)?; // Ensure 1 SOL minimum
 
@@ -190,6 +190,9 @@ fn transfer_compressed_hash(
     let signature = client.send_and_confirm_transaction(&transaction)?;
     println!("Successfully transferred compressed hash. Transaction signature: {}", signature);
 
+    // Orijinal JSON verisini yazdır
+    print_formatted_json(original_json, "Original ");
+
     Ok(signature)
 }
 
@@ -208,7 +211,10 @@ fn retrieve_and_decompress_hash(client: &RpcClient, signature: &Signature) -> Re
                             Ok(decompressed_hash) => {
                                 println!("Decompressed hash: {}", decompressed_hash);  
                                 match serde_json::from_str(&decompressed_hash) {
-                                    Ok(json_data) => return Ok(json_data),
+                                    Ok(json_data) => {
+                                        print_formatted_json(&json_data, "Retrieved ");
+                                        return Ok(json_data);
+                                    },
                                     Err(e) => println!("Error parsing JSON: {}", e),  
                                 }
                             },
@@ -227,6 +233,7 @@ fn print_formatted_json(json_value: &Value, prefix: &str) {
     println!("{}JSON data:", prefix);
     println!("{}{}", prefix, serde_json::to_string_pretty(json_value).unwrap());
 }
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting Solfhe Analyzer");
 
@@ -263,12 +270,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 json!({"error": "No words analyzed yet"})
                             };
 
+                            // Orijinal JSON verisini yazdır
+                            print_formatted_json(&result, "Original ");
+
                             let json_string = result.to_string();
                             let compressed_result = zk_compress(&json_string);
                             println!("\nSolfhe Result (ZK compressed):");
                             println!("{}", compressed_result);
 
-                            match transfer_compressed_hash(&client, &account1, &account2.pubkey(), &compressed_result) {
+                            match transfer_compressed_hash(&client, &account1, &account2.pubkey(), &compressed_result, &result) {
                                 Ok(signature) => {
                                     println!("Successfully transferred hash");
                                     match retrieve_and_decompress_hash(&client, &signature) {
