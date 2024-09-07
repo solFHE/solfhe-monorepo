@@ -16,3 +16,5 @@ solana-client = "1.16.0"
 spl-token = "3.5.0"
 spl-associated-token-account = "1.1.3"
 spl-memo = "3.0.1"
+solana-transaction-status = "1.16.0"
+
