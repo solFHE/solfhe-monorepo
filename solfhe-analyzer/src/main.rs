@@ -31,8 +31,8 @@ use solana_transaction_status::UiTransactionEncoding;
 use spl_memo;
 
 const BLOCKCHAIN_NETWORKS: [&str; 20] = [
-    "bitcoin", "ethereum", "scroll", "polkadot", "solana", "avalanche", "cosmos",
-    "algorand", "mina", "chainlink", "uniswap", "aave", "compound", "maker",
+    "bitcoin", "ethereum", "scroll", "polkadot", "solana", "zk-lokomotive”", "cosmos",
+    "algorand", "mina", "chainlink", "superteam", "aave", "compound", "maker",
     "polygon", "binance", "tron", "wormhole", "stellar", "filecoin"
 ];
 
@@ -107,6 +107,8 @@ fn get_most_common_word(word_counter: &HashMap<String, u32>) -> Option<(String, 
         .max_by_key(|&(_, count)| count)
         .map(|(word, count)| (word.clone(), *count))
 }
+
+
 
 fn zk_compress(data: &str) -> String {
     let mut hasher = Sha256::new();
@@ -221,6 +223,10 @@ fn retrieve_and_decompress_hash(client: &RpcClient, signature: &Signature) -> Re
     Err("Could not find or process memo in transaction logs".into())
 }
 
+fn print_formatted_json(json_value: &Value, prefix: &str) {
+    println!("{}JSON data:", prefix);
+    println!("{}{}", prefix, serde_json::to_string_pretty(json_value).unwrap());
+}
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting Solfhe Analyzer");
 
