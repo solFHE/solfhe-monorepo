@@ -40,8 +40,8 @@ const BLOCKCHAIN_NETWORKS: [&str; 20] = [
     "polygon", "binance", "tron", "wormhole", "stellar", "filecoin"
 ];
 
-const IGNORED_WORDS: [&str; 6] = [
-    "http", "https", "www", "com", "org", "net"
+const IGNORED_WORDS: [&str; 18] = [
+    "http", "https", "www", "com", "org", "net", "search", "google", "?", "q", "=", "xyz", "&", "%", "#", "oq", "://", ":UTF-8"
 ];
 
 fn get_chrome_history_path() -> PathBuf {

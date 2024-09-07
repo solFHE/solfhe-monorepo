@@ -22,4 +22,4 @@ def check_for_blink(data):
 json_file_path = "script.json"
 json_data = read_json_file(json_file_path)
 blink_status = check_for_blink(json_data)
-print(f"Gösterilecek blink: {blink_status}")
+print(f"🚨 Matched Blink: {blink_status}")
