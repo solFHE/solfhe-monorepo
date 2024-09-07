@@ -3958,6 +3958,7 @@ dependencies = [
  "dirs",
  "hex",
  "rusqlite",
+ "serde",
  "serde_json",
  "sha2 0.10.8",
  "solana-client",

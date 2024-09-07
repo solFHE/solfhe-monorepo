@@ -190,27 +190,28 @@ fn transfer_compressed_hash(
 
 fn retrieve_and_decompress_hash(client: &RpcClient, signature: &Signature) -> Result<Value, Box<dyn std::error::Error>> {
     let transaction = client.get_transaction(signature, UiTransactionEncoding::Json)?;
-    
+
     if let Some(meta) = transaction.transaction.meta {
-        let log_messages = meta.log_messages.map(|serializer| serializer.into_inner()).unwrap_or_default();
-        for log in log_messages {
-            if log.starts_with("Program log: Memo") {
-                let compressed_hash = log
-                    .strip_prefix("Program log: Memo (len ")
-                    .and_then(|s| s.strip_prefix("0): "))
-                    .ok_or("Unexpected memo format")?;
-                let decompressed_hash = zk_decompress(compressed_hash)?;
-                let json_data: Value = serde_json::from_str(&decompressed_hash)?;
-                return Ok(json_data);
+        if let Some(log_messages) = meta.log_messages {
+            for log in log_messages {
+                if log.starts_with("Program log: Memo") {
+                    if let Some(start_index) = log.find("): ") {
+                        let compressed_hash = &log[start_index + 3..];
+                        let decompressed_hash = zk_decompress(compressed_hash)?;
+                        let json_data: Value = serde_json::from_str(&decompressed_hash)?;
+                        return Ok(json_data);
+                    }
+                }
             }
         }
     }
-    
+
     Err("Could not find memo in transaction logs".into())
 }
 
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("Starting Solfhe Analyzer");
+
     let client = RpcClient::new("http://localhost:8899".to_string());
     
     let account1 = create_solana_account();
