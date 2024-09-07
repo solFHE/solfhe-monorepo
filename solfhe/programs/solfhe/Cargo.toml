@@ -17,3 +17,4 @@ default = []
 
 [dependencies]
 anchor-lang = "0.29.0"
+tfhe = { version = "0.2.3", features = ["boolean", "shortint", "integer"] }
