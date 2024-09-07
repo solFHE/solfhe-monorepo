@@ -12,9 +12,10 @@ use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
 use serde_json::{json, Value};
-use base64::{Engine as _, engine::general_purpose};
 use rusqlite::Connection;
 use url::Url;
+use sha2::{Sha256, Digest};
+use base64::{Engine as _, engine::general_purpose};
 
 const BLOCKCHAIN_NETWORKS: [&str; 20] = [
     "bitcoin", "ethereum", "scroll", "polkadot", "solana", "avalanche", "cosmos",
@@ -97,15 +98,20 @@ fn get_most_common_word(word_counter: &HashMap<String, u32>) -> Option<(String, 
         .map(|(word, count)| (word.clone(), *count))
 }
 
-// Temsili FHE şifreleme fonksiyonu (Base64 kodlama)
-fn fhe_encrypt(data: &str) -> String {
-    general_purpose::STANDARD_NO_PAD.encode(data)
+// Temsili ZK compression fonksiyonu
+fn zk_compress(data: &str) -> String {
+    // Gerçek bir ZK compression yerine basit bir hash + encoding kullanıyoruz
+    let mut hasher = Sha256::new();
+    hasher.update(data);
+    let result = hasher.finalize();
+    general_purpose::STANDARD_NO_PAD.encode(result)
 }
 
-// Temsili FHE çözme fonksiyonu (Base64 çözme)
-fn fhe_decrypt(data: &str) -> Result<String, base64::DecodeError> {
-    let bytes = general_purpose::STANDARD_NO_PAD.decode(data)?;
-    String::from_utf8(bytes).map_err(|_| base64::DecodeError::InvalidByte(0, 0))
+// Temsili ZK decompression fonksiyonu
+fn zk_decompress(compressed_data: &str) -> Result<String, base64::DecodeError> {
+    // Gerçek bir ZK decompression yerine sadece Base64 decode yapıyoruz
+    let bytes = general_purpose::STANDARD_NO_PAD.decode(compressed_data)?;
+    Ok(hex::encode(bytes))
 }
 
 fn main() {
@@ -132,22 +138,18 @@ fn main() {
                             };
 
                             let json_string = result.to_string();
-                            let encrypted_result = fhe_encrypt(&json_string);
-                            println!("\nSolfhe Result (FHE encrypted):");
-                            println!("{}", encrypted_result);
+                            let compressed_result = zk_compress(&json_string);
+                            println!("\nSolfhe Result (ZK compressed):");
+                            println!("{}", compressed_result);
 
-                            // Şifrelenmiş sonucu çöz ve JSON olarak parse et
-                            match fhe_decrypt(&encrypted_result) {
-                                Ok(decrypted_json) => {
-                                    match serde_json::from_str::<Value>(&decrypted_json) {
-                                        Ok(json_value) => {
-                                            println!("\nDecrypted and parsed JSON:");
-                                            println!("{}", serde_json::to_string_pretty(&json_value).unwrap());
-                                        },
-                                        Err(e) => println!("Error parsing JSON: {}", e),
-                                    }
+                            // ZK compressed sonucu çöz ve JSON olarak parse et
+                            match zk_decompress(&compressed_result) {
+                                Ok(decompressed_data) => {
+                                    println!("\nDecompressed data (hash):");
+                                    println!("{}", decompressed_data);
+                                    
                                 },
-                                Err(e) => println!("Error decrypting: {}", e),
+                                Err(e) => println!("Error decompressing: {}", e),
                             }
 
                             links.clear();
