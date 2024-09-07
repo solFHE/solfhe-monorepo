@@ -22,9 +22,10 @@ use solana_sdk::{
     transaction::Transaction,
     commitment_config::CommitmentConfig,
     system_instruction,
+    pubkey::Pubkey,
 };
 use solana_client::rpc_client::RpcClient;
-use spl_token::{instruction as spl_instruction, native_mint};
+use spl_token::native_mint;
 use spl_associated_token_account::instruction as spl_associated_token_instruction;
 use spl_memo;
 
@@ -127,24 +128,25 @@ fn create_solana_account() -> Keypair {
     Keypair::new()
 }
 
-fn airdrop_sol(client: &RpcClient, pubkey: &solana_sdk::pubkey::Pubkey, amount: u64) -> Result<(), Box<dyn std::error::Error>> {
+fn airdrop_sol(client: &RpcClient, pubkey: &Pubkey, amount: u64) -> Result<(), Box<dyn std::error::Error>> {
     let sig = client.request_airdrop(pubkey, amount)?;
-    client.confirm_transaction(&sig, CommitmentConfig::confirmed())?;
+    client.confirm_transaction(&sig)?;
     Ok(())
 }
 
 fn create_spl_token_account(
     client: &RpcClient,
     payer: &Keypair,
-    token_mint: &solana_sdk::pubkey::Pubkey,
-    owner: &solana_sdk::pubkey::Pubkey,
-) -> Result<solana_sdk::pubkey::Pubkey, Box<dyn std::error::Error>> {
+    token_mint: &Pubkey,
+    owner: &Pubkey,
+) -> Result<Pubkey, Box<dyn std::error::Error>> {
     let associated_token_address = spl_associated_token_account::get_associated_token_address(owner, token_mint);
     
     let create_ata_ix = spl_associated_token_instruction::create_associated_token_account(
         &payer.pubkey(),
         owner,
         token_mint,
+        &spl_token::id(),
     );
     
     let recent_blockhash = client.get_latest_blockhash()?;
@@ -163,8 +165,8 @@ fn create_spl_token_account(
 fn transfer_compressed_hash(
     client: &RpcClient,
     payer: &Keypair,
-    from: &solana_sdk::pubkey::Pubkey,
-    to: &solana_sdk::pubkey::Pubkey,
+    from: &Pubkey,
+    to: &Pubkey,
     compressed_hash: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let transfer_ix = system_instruction::transfer(from, to, 1); // 1 lamport transfer
