@@ -13,7 +13,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
-use serde_json::json;
+use serde_json::{json, Value};
 use rusqlite::Connection;
 use url::Url;
 use sha2::{Sha256, Digest};
@@ -23,6 +23,7 @@ use solana_sdk::{
     transaction::Transaction,
     system_instruction,
     pubkey::Pubkey,
+    rent::Rent,
 };
 use solana_client::rpc_client::RpcClient;
 use spl_memo;
@@ -112,13 +113,9 @@ fn zk_compress(data: &str) -> String {
     general_purpose::STANDARD_NO_PAD.encode(result)
 }
 
-fn zk_decompress(compressed_data: &str) -> Result<String, base64::DecodeError> {
+fn zk_decompress(compressed_data: &str) -> Result<String, Box<dyn std::error::Error>> {
     let bytes = general_purpose::STANDARD_NO_PAD.decode(compressed_data)?;
     Ok(hex::encode(bytes))
-}
-
-fn create_solana_account() -> Keypair {
-    Keypair::new()
 }
 
 fn airdrop_sol(client: &RpcClient, pubkey: &Pubkey, amount: u64) -> Result<(), Box<dyn std::error::Error>> {
@@ -181,13 +178,30 @@ fn transfer_compressed_hash(
         recent_blockhash,
     );
     
-    client.send_and_confirm_transaction(&transaction)?;
-    println!("Successfully transferred compressed hash");
-
-    let new_balance = client.get_balance(&payer.pubkey())?;
-    println!("Current balance after transfer: {} lamports", new_balance);
+    let signature = client.send_and_confirm_transaction(&transaction)?;
+    println!("Successfully transferred compressed hash. Transaction signature: {}", signature);
 
     Ok(())
+}
+
+fn retrieve_and_decompress_hash(client: &RpcClient, signature: &str) -> Result<Value, Box<dyn std::error::Error>> {
+    let transaction = client.get_transaction(signature, solana_transaction_status::UiTransactionEncoding::Json)?;
+    
+    if let Some(meta) = transaction.transaction.meta {
+        if let Some(log_messages) = meta.log_messages {
+            for log in log_messages {
+                if log.starts_with("Program log: Memo") {
+                    let compressed_hash = log.trim_start_matches("Program log: Memo (len ");
+                    let compressed_hash = compressed_hash.trim_start_matches("0): ");
+                    let decompressed_hash = zk_decompress(compressed_hash)?;
+                    let json_data: Value = serde_json::from_str(&decompressed_hash)?;
+                    return Ok(json_data);
+                }
+            }
+        }
+    }
+    
+    Err("Could not find memo in transaction logs".into())
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -230,16 +244,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             println!("{}", compressed_result);
 
                             match transfer_compressed_hash(&client, &account1, &account2.pubkey(), &compressed_result) {
-                                Ok(_) => println!("Successfully transferred hash"),
-                                Err(e) => println!("Error during hash transfer: {}", e),
-                            }
-
-                            match zk_decompress(&compressed_result) {
-                                Ok(decompressed_data) => {
-                                    println!("\nDecompressed data (hash):");
-                                    println!("{}", decompressed_data);
+                                Ok(()) => {
+                                    println!("Successfully transferred hash");
+                                    // Retrieve the last transaction signature
+                                    if let Ok(signatures) = client.get_signatures_for_address(&account1.pubkey()) {
+                                        if let Some(latest_signature) = signatures.first() {
+                                            match retrieve_and_decompress_hash(&client, &latest_signature.signature) {
+                                                Ok(decompressed_json) => {
+                                                    println!("Retrieved and decompressed JSON data:");
+                                                    println!("{}", serde_json::to_string_pretty(&decompressed_json)?);
+                                                },
+                                                Err(e) => println!("Error retrieving and decompressing hash: {}", e),
+                                            }
+                                        }
+                                    }
                                 },
-                                Err(e) => println!("Error decompressing: {}", e),
+                                Err(e) => println!("Error during hash transfer: {}", e),
                             }
 
                             links.clear();
