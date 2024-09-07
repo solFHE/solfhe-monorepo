@@ -11,9 +11,9 @@ use std::fs;
 use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
-use serde_json::json;
-// use base64::{engine::general_purpose, Engine as _};
+use serde_json::{json, Value};
 use base64::{Engine as _, engine::general_purpose};
+use rusqlite::Connection;
 
 const BLOCKCHAIN_NETWORKS: [&str; 20] = [
     "bitcoin", "ethereum", "scroll", "polkadot", "solana", "avalanche", "cosmos",
@@ -38,7 +38,7 @@ fn extract_links_from_chrome() -> Vec<String> {
 
     fs::copy(&history_path, &temp_path).expect("Failed to copy history file");
 
-    let conn = rusqlite::Connection::open(&temp_path).expect("Failed to open database");
+    let conn = Connection::open(&temp_path).expect("Failed to open database");
     let mut stmt = conn.prepare("SELECT url FROM urls ORDER BY last_visit_time DESC LIMIT 5")
         .expect("Failed to prepare statement");
     
@@ -71,10 +71,15 @@ fn get_most_common_word(word_counter: &HashMap<String, u32>) -> Option<(String, 
         .map(|(word, count)| (word.clone(), *count))
 }
 
-// Temsili FHE şifreleme fonksiyonu
+// Temsili FHE şifreleme fonksiyonu (Base64 kodlama)
 fn fhe_encrypt(data: &str) -> String {
-    // Gerçek FHE yerine basit bir Base64 kodlama kullanıyoruz
     general_purpose::STANDARD_NO_PAD.encode(data)
+}
+
+// Temsili FHE çözme fonksiyonu (Base64 çözme)
+fn fhe_decrypt(data: &str) -> Result<String, base64::DecodeError> {
+    let bytes = general_purpose::STANDARD_NO_PAD.decode(data)?;
+    String::from_utf8(bytes).map_err(|_| base64::DecodeError::InvalidByte(0, 0))
 }
 
 fn main() {
@@ -91,21 +96,34 @@ fn main() {
                         println!("Analyzed new link: {}", url);
 
                         if links.len() >= 5 {
-                            if let Some((word, count)) = get_most_common_word(&word_counter) {
-                                let result = json!({
+                            let result = if let Some((word, count)) = get_most_common_word(&word_counter) {
+                                json!({
                                     "most_common_word": word,
                                     "count": count
-                                });
-                                let json_string = result.to_string();
-                                let encrypted_result = fhe_encrypt(&json_string);
-                                println!("\nSolfhe Result (FHE encrypted):");
-                                println!("{}", encrypted_result);
+                                })
                             } else {
-                                let error_json = json!({"error": "No words analyzed yet"});
-                                let encrypted_error = fhe_encrypt(&error_json.to_string());
-                                println!("\nSolfhe Result (FHE encrypted):");
-                                println!("{}", encrypted_error);
+                                json!({"error": "No words analyzed yet"})
+                            };
+
+                            let json_string = result.to_string();
+                            let encrypted_result = fhe_encrypt(&json_string);
+                            println!("\nSolfhe Result (FHE encrypted):");
+                            println!("{}", encrypted_result);
+
+                            // Şifrelenmiş sonucu çöz ve JSON olarak parse et
+                            match fhe_decrypt(&encrypted_result) {
+                                Ok(decrypted_json) => {
+                                    match serde_json::from_str::<Value>(&decrypted_json) {
+                                        Ok(json_value) => {
+                                            println!("\nDecrypted and parsed JSON:");
+                                            println!("{}", serde_json::to_string_pretty(&json_value).unwrap());
+                                        },
+                                        Err(e) => println!("Error parsing JSON: {}", e),
+                                    }
+                                },
+                                Err(e) => println!("Error decrypting: {}", e),
                             }
+
                             links.clear();
                             word_counter.clear();
                         }
