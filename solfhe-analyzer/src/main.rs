@@ -197,7 +197,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Account 2 public key: {}", account2.pubkey());
     
     // Try to airdrop, but continue even if it fails
-    match airdrop_sol_with_retry(&client, &account1.pubkey(), 1_000_000_000, 5) {
+    match airdrop_sol_with_retry(&client, &account1.pubkey(), 1_000_000_000, 1) {
         Ok(_) => println!("Successfully airdropped SOL to Account 1"),
         Err(e) => println!("Failed to airdrop SOL: {}. Continuing without airdrop.", e),
     }
