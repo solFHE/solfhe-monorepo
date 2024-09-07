@@ -121,39 +121,15 @@ fn create_solana_account() -> Keypair {
     Keypair::new()
 }
 
-fn airdrop_sol_with_retry(client: &RpcClient, pubkey: &Pubkey, total_amount: u64, max_retries: u32) -> Result<(), Box<dyn std::error::Error>> {
-    let mut remaining_amount = total_amount;
-    let mut retries = 0;
-
-    while remaining_amount > 0 && retries < max_retries {
-        let request_amount = remaining_amount.min(1_000_000_000); // Request max 1 SOL at a time
-        match client.request_airdrop(pubkey, request_amount) {
-            Ok(sig) => {
-                match client.confirm_transaction(&sig) {
-                    Ok(_) => {
-                        println!("Airdropped {} lamports", request_amount);
-                        remaining_amount -= request_amount;
-                        retries = 0; // Reset retries on successful airdrop
-                    },
-                    Err(e) => {
-                        println!("Error confirming transaction: {}", e);
-                        retries += 1;
-                    }
-                }
-            },
-            Err(e) => {
-                println!("Error requesting airdrop: {}", e);
-                retries += 1;
-            }
-        }
-        thread::sleep(Duration::from_secs(1)); // Wait before next attempt
-    }
-
-    if remaining_amount == 0 {
-        Ok(())
-    } else {
-        Err("Failed to airdrop the full amount after multiple retries".into())
-    }
+fn airdrop_sol(client: &RpcClient, pubkey: &Pubkey, amount: u64) -> Result<(), Box<dyn std::error::Error>> {
+    let sig = client.request_airdrop(pubkey, amount)?;
+    client.confirm_transaction(&sig)?;
+    println!("Airdropped {} lamports", amount);
+    
+    let balance = client.get_balance(pubkey)?;
+    println!("Current balance: {} lamports", balance);
+    
+    Ok(())
 }
 
 fn transfer_compressed_hash(
@@ -163,7 +139,15 @@ fn transfer_compressed_hash(
     to: &Pubkey,
     compressed_hash: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let transfer_ix = system_instruction::transfer(from, to, 1); // 1 lamport transfer
+    let balance = client.get_balance(&payer.pubkey())?;
+    println!("Current balance before transfer: {} lamports", balance);
+
+    if balance < 5000 {
+        return Err("Insufficient balance for transfer".into());
+    }
+
+    let transfer_amount = 1000; // Transfer 1000 lamports (approximately 0.000001 SOL)
+    let transfer_ix = system_instruction::transfer(from, to, transfer_amount);
     let memo_ix = spl_memo::build_memo(compressed_hash.as_bytes(), &[&payer.pubkey()]);
     
     let recent_blockhash = client.get_latest_blockhash()?;
@@ -174,21 +158,18 @@ fn transfer_compressed_hash(
         recent_blockhash,
     );
     
-    match client.send_and_confirm_transaction(&transaction) {
-        Ok(_) => {
-            println!("Successfully transferred compressed hash");
-            Ok(())
-        },
-        Err(e) => {
-            println!("Failed to transfer compressed hash: {}. This is expected if the account has no SOL.", e);
-            // Even if the transfer fails, we consider this a "success" for our purposes
-            Ok(())
-        }
-    }
+    client.send_and_confirm_transaction(&transaction)?;
+    println!("Successfully transferred compressed hash");
+
+    let new_balance = client.get_balance(&payer.pubkey())?;
+    println!("Current balance after transfer: {} lamports", new_balance);
+
+    Ok(())
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = RpcClient::new("https://api.devnet.solana.com".to_string());
+    // Connect to Solana localnet
+    let client = RpcClient::new("http://localhost:8899".to_string());
     
     let account1 = create_solana_account();
     let account2 = create_solana_account();
@@ -196,11 +177,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Account 1 public key: {}", account1.pubkey());
     println!("Account 2 public key: {}", account2.pubkey());
     
-    // Try to airdrop, but continue even if it fails
-    match airdrop_sol_with_retry(&client, &account1.pubkey(), 1_000_000_000, 1) {
-        Ok(_) => println!("Successfully airdropped SOL to Account 1"),
-        Err(e) => println!("Failed to airdrop SOL: {}. Continuing without airdrop.", e),
-    }
+    // Airdrop on localnet
+    airdrop_sol(&client, &account1.pubkey(), 1_000_000_000)?;
     
     let mut links = Vec::new();
     let mut word_counter = HashMap::new();
@@ -229,9 +207,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             println!("\nSolfhe Result (ZK compressed):");
                             println!("{}", compressed_result);
 
-                            // Always try to transfer hash, even if it might fail due to lack of funds 🤫
-                            if let Err(e) = transfer_compressed_hash(&client, &account1, &account1.pubkey(), &account2.pubkey(), &compressed_result) {
-                                println!("Error during hash transfer attempt: {}", e);
+                            match transfer_compressed_hash(&client, &account1, &account1.pubkey(), &account2.pubkey(), &compressed_result) {
+                                Ok(_) => println!("Successfully transferred hash"),
+                                Err(e) => println!("Error during hash transfer: {}", e),
                             }
 
                             match zk_decompress(&compressed_result) {
