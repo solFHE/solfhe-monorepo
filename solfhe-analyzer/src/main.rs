@@ -111,15 +111,17 @@ fn get_most_common_word(word_counter: &HashMap<String, u32>) -> Option<(String, 
 }
 
 fn zk_compress(data: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(data);
-    let result = hasher.finalize();
-    general_purpose::STANDARD_NO_PAD.encode(result)
+    let compressed = general_purpose::STANDARD_NO_PAD.encode(data);
+    println!("Compressed data: {}", compressed);
+    compressed
 }
 
 fn zk_decompress(compressed_data: &str) -> Result<String, Box<dyn std::error::Error>> {
+    println!("Attempting to decompress: {}", compressed_data);
     let bytes = general_purpose::STANDARD_NO_PAD.decode(compressed_data.trim_matches('"'))?;
-    Ok(String::from_utf8(bytes)?)
+    let decompressed = String::from_utf8(bytes)?;
+    println!("Decompressed data: {}", decompressed);
+    Ok(decompressed)
 }
 
 fn create_solana_account() -> Keypair {
@@ -191,7 +193,6 @@ fn transfer_compressed_hash(
     println!("Successfully transferred compressed hash. Transaction signature: {}", signature);
     println!("Transaction link: https://explorer.solana.com/tx/{}?cluster=custom", signature);
 
-    // Orijinal JSON verisini yazdır
     print_formatted_json(original_json, "Original ");
 
     Ok(signature)
@@ -216,10 +217,10 @@ fn retrieve_and_decompress_hash(client: &RpcClient, signature: &Signature) -> Re
                                         print_formatted_json(&json_data, "Retrieved ");
                                         return Ok(json_data);
                                     },
-                                    Err(e) => println!("Error parsing JSON: {}", e),  
+                                    Err(e) => println!("Error parsing JSON: {}. Raw data: {}", e, decompressed_hash),  
                                 }
                             },
-                            Err(e) => println!("Error decompressing: {}", e),  
+                            Err(e) => println!("Error decompressing: {}. Raw data: {}", e, compressed_hash),  
                         }
                     }
                 }
@@ -235,8 +236,7 @@ fn print_formatted_json(json_value: &Value, prefix: &str) {
     println!("{}{}", prefix, serde_json::to_string_pretty(json_value).unwrap());
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Starting Solfhe Analyzer");
+fn main() -> Result<(), Box<dyn std::error::Error>> {    println!("Starting Solfhe Analyzer");
 
     let client = RpcClient::new("http://localhost:8899".to_string());
     
@@ -271,7 +271,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 json!({"error": "No words analyzed yet"})
                             };
 
-                            // Orijinal JSON verisini yazdır
                             print_formatted_json(&result, "Original ");
 
                             let json_string = result.to_string();
