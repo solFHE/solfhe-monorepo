@@ -133,6 +133,41 @@ fn airdrop_sol(client: &RpcClient, pubkey: &Pubkey, amount: u64) -> Result<(), B
     Ok(())
 }
 
+fn airdrop_sol_with_retry(client: &RpcClient, pubkey: &Pubkey, total_amount: u64, max_retries: u32) -> Result<(), Box<dyn std::error::Error>> {
+    let mut remaining_amount = total_amount;
+    let mut retries = 0;
+
+    while remaining_amount > 0 && retries < max_retries {
+        let request_amount = remaining_amount.min(1_000_000_000); // Request max 1 SOL at a time
+        match client.request_airdrop(pubkey, request_amount) {
+            Ok(sig) => {
+                match client.confirm_transaction(&sig) {
+                    Ok(_) => {
+                        println!("Airdropped {} lamports", request_amount);
+                        remaining_amount -= request_amount;
+                        retries = 0; // Resetle
+                    },
+                    Err(e) => {
+                        println!("Error confirming transaction: {}", e);
+                        retries += 1;
+                    }
+                }
+            },
+            Err(e) => {
+                println!("Error requesting airdrop: {}", e);
+                retries += 1;
+            }
+        }
+        thread::sleep(Duration::from_secs(1)); // Bekle
+    }
+
+    if remaining_amount == 0 {
+        Ok(())
+    } else {
+        Err("Failed to airdrop the full amount after multiple retries".into())
+    }
+}
+
 fn create_spl_token_account(
     client: &RpcClient,
     payer: &Keypair,
@@ -194,13 +229,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Account 1 public key: {}", account1.pubkey());
     println!("Account 2 public key: {}", account2.pubkey());
     
+
+    
     // Account 1'e SOL airdrop
-    airdrop_sol(&client, &account1.pubkey(), 1_000_000_000)?; // 1 SOL
+    match airdrop_sol_with_retry(&client, &account1.pubkey(), 1_000_000_000, 5) {
+        Ok(_) => println!("Successfully airdropped SOL to Account 1"),
+        Err(e) => println!("Failed to airdrop SOL: {}", e),
+    }
     
     // SPL token hesabı oluştur (Native SOL için)
-    let token_account1 = create_spl_token_account(&client, &account1, &native_mint::id(), &account1.pubkey())?;
-    
-    println!("SPL Token account for Account 1: {}", token_account1);
+    match create_spl_token_account(&client, &account1, &native_mint::id(), &account1.pubkey()) {
+        Ok(token_account1) => println!("SPL Token account for Account 1: {}", token_account1),
+        Err(e) => println!("Failed to create SPL token account: {}", e),
+    }    
     
     let mut links = Vec::new();
     let mut word_counter = HashMap::new();
