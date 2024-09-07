@@ -156,34 +156,6 @@ fn airdrop_sol_with_retry(client: &RpcClient, pubkey: &Pubkey, total_amount: u64
     }
 }
 
-fn create_spl_token_account(
-    client: &RpcClient,
-    payer: &Keypair,
-    token_mint: &Pubkey,
-    owner: &Pubkey,
-) -> Result<Pubkey, Box<dyn std::error::Error>> {
-    let associated_token_address = spl_associated_token_account::get_associated_token_address(owner, token_mint);
-    
-    let create_ata_ix = spl_associated_token_instruction::create_associated_token_account(
-        &payer.pubkey(),
-        owner,
-        token_mint,
-        &spl_token::id(),
-    );
-    
-    let recent_blockhash = client.get_latest_blockhash()?;
-    let transaction = Transaction::new_signed_with_payer(
-        &[create_ata_ix],
-        Some(&payer.pubkey()),
-        &[payer],
-        recent_blockhash,
-    );
-    
-    client.send_and_confirm_transaction(&transaction)?;
-    
-    Ok(associated_token_address)
-}
-
 fn transfer_compressed_hash(
     client: &RpcClient,
     payer: &Keypair,
@@ -230,8 +202,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Err(e) => println!("Failed to airdrop SOL: {}. Continuing without airdrop.", e),
     }
     
-    // We'll skip creating the SPL token account for now, as it's not necessary for hash transfer 🤫
-    
     let mut links = Vec::new();
     let mut word_counter = HashMap::new();
 
@@ -259,7 +229,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             println!("\nSolfhe Result (ZK compressed):");
                             println!("{}", compressed_result);
 
-                            // Always try to transfer hash, even if it might fail due to lack of funds 🤓
+                            // Always try to transfer hash, even if it might fail due to lack of funds 🤫
                             if let Err(e) = transfer_compressed_hash(&client, &account1, &account1.pubkey(), &account2.pubkey(), &compressed_result) {
                                 println!("Error during hash transfer attempt: {}", e);
                             }
