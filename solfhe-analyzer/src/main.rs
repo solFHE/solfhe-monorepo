@@ -20,7 +20,6 @@ use base64::{Engine as _, engine::general_purpose};
 use solana_sdk::{
     signature::{Keypair, Signer},
     transaction::Transaction,
-    commitment_config::CommitmentConfig,
     system_instruction,
     pubkey::Pubkey,
 };
