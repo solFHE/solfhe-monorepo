@@ -10,6 +10,7 @@ run metodu, sürekli çalışan bir döngü içinde her 60 saniyede bir yeni lin
 
 
 
+
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
@@ -117,9 +118,8 @@ fn zk_compress(data: &str) -> String {
 }
 
 fn zk_decompress(compressed_data: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let bytes = general_purpose::STANDARD_NO_PAD.decode(compressed_data)?;
-    let hex_string = hex::encode(bytes);
-    Ok(hex_string)
+    let bytes = general_purpose::STANDARD_NO_PAD.decode(compressed_data.trim_matches('"'))?;
+    Ok(String::from_utf8(bytes)?)
 }
 
 fn create_solana_account() -> Keypair {
@@ -169,7 +169,7 @@ fn transfer_compressed_hash(
     payer: &Keypair,
     to: &Pubkey,
     compressed_hash: &str,
-    original_json: &Value,  // Yeni parametre
+    original_json: &Value,
 ) -> Result<Signature, Box<dyn std::error::Error>> {
     ensure_minimum_balance(client, &payer.pubkey(), 1_000_000_000)?; // Ensure 1 SOL minimum
 
@@ -189,6 +189,7 @@ fn transfer_compressed_hash(
     
     let signature = client.send_and_confirm_transaction(&transaction)?;
     println!("Successfully transferred compressed hash. Transaction signature: {}", signature);
+    println!("Transaction link: https://explorer.solana.com/tx/{}?cluster=custom", signature);
 
     // Orijinal JSON verisini yazdır
     print_formatted_json(original_json, "Original ");
