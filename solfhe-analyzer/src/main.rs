@@ -31,6 +31,8 @@ use solana_sdk::{
 use solana_client::rpc_client::RpcClient;
 use solana_transaction_status::UiTransactionEncoding;
 use spl_memo;
+use std::fs::File;
+use std::io::Write;
 
 const BLOCKCHAIN_NETWORKS: [&str; 20] = [
     "bitcoin", "ethereum", "scroll", "polkadot", "solana", "zk-lokomotive", "cosmos",
@@ -236,7 +238,16 @@ fn print_formatted_json(json_value: &Value, prefix: &str) {
     println!("{}{}", prefix, serde_json::to_string_pretty(json_value).unwrap());
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {    println!("Starting Solfhe Analyzer");
+fn save_json_to_file(json_data: &Value, filename: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let mut file = File::create(filename)?;
+    let json_string = serde_json::to_string_pretty(json_data)?;
+    file.write_all(json_string.as_bytes())?;
+    println!("JSON data saved to {}", filename);
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("Starting Solfhe Analyzer");
 
     let client = RpcClient::new("http://localhost:8899".to_string());
     
@@ -285,6 +296,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {    println!("Starting Solf
                                         Ok(decompressed_json) => {
                                             println!("Retrieved and decompressed JSON data:");
                                             println!("{}", serde_json::to_string_pretty(&decompressed_json)?);
+                                            
+                                            // Save the decompressed JSON to solfhe.json file
+                                            if let Err(e) = save_json_to_file(&decompressed_json, "solfhe.json") {
+                                                println!("Error saving JSON to file: {}", e);
+                                            }
                                         },
                                         Err(e) => println!("Error retrieving and decompressing hash: {}", e),
                                     }
