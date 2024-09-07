@@ -33,6 +33,7 @@ use solana_transaction_status::UiTransactionEncoding;
 use spl_memo;
 use std::fs::File;
 use std::io::Write;
+use std::process::Command;
 
 const BLOCKCHAIN_NETWORKS: [&str; 20] = [
     "bitcoin", "ethereum", "scroll", "polkadot", "solana", "zk-lokomotive", "cosmos",
@@ -301,6 +302,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             if let Err(e) = save_json_to_file(&decompressed_json, "solfhe.json") {
                                                 println!("Error saving JSON to file: {}", e);
                                             }
+
+                                            // Execute Python script after saving JSON
+                                            match Command::new("python3")
+                                                .arg("blink-matcher.py")
+                                                .status() {
+                                                Ok(status) => println!("Python script executed with status: {}", status),
+                                                Err(e) => println!("Failed to execute Python script: {}", e),
+                                            }
                                         },
                                         Err(e) => println!("Error retrieving and decompressing hash: {}", e),
                                     }
@@ -317,6 +326,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok(_) => println!("No new links found"),
             Err(e) => println!("Error extracting links from Chrome: {}", e),
         }
-        thread::sleep(Duration::from_secs(60));
+        thread::sleep(Duration::from_secs(10));
     }
 }

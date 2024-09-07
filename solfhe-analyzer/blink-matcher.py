@@ -19,7 +19,7 @@ def check_for_blink(data):
         return blink_link
     return "No blink found"
 
-json_file_path = "script.json"
+json_file_path = "solfhe.json"
 json_data = read_json_file(json_file_path)
 blink_status = check_for_blink(json_data)
 print(f"🚨 Matched Blink: {blink_status}")
