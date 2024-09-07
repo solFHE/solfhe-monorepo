@@ -8,6 +8,7 @@ analyze_link metodu, her bir linki ayrıştırır ve içindeki anlamlı kelimele
 get_most_common_word ve to_json metotları, en sık kullanılan kelimeyi bulur ve JSON formatında çıktı üretir.
 run metodu, sürekli çalışan bir döngü içinde her 60 saniyede bir yeni linkleri kontrol eder. */
 
+
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
@@ -116,7 +117,8 @@ fn zk_compress(data: &str) -> String {
 
 fn zk_decompress(compressed_data: &str) -> Result<String, Box<dyn std::error::Error>> {
     let bytes = general_purpose::STANDARD_NO_PAD.decode(compressed_data)?;
-    Ok(hex::encode(bytes))
+    let hex_string = hex::encode(bytes);
+    Ok(hex_string)
 }
 
 fn create_solana_account() -> Keypair {
@@ -195,19 +197,28 @@ fn retrieve_and_decompress_hash(client: &RpcClient, signature: &Signature) -> Re
     if let Some(meta) = transaction.transaction.meta {
         if let OptionSerializer::Some(log_messages) = meta.log_messages {
             for log in log_messages {
+                println!("Processing log: {}", log);  
                 if log.starts_with("Program log: Memo") {
                     if let Some(start_index) = log.find("): ") {
                         let compressed_hash = &log[start_index + 3..];
-                        let decompressed_hash = zk_decompress(compressed_hash)?;
-                        let json_data: Value = serde_json::from_str(&decompressed_hash)?;
-                        return Ok(json_data);
+                        println!("Compressed hash: {}", compressed_hash);  
+                        match zk_decompress(compressed_hash) {
+                            Ok(decompressed_hash) => {
+                                println!("Decompressed hash: {}", decompressed_hash);  
+                                match serde_json::from_str(&decompressed_hash) {
+                                    Ok(json_data) => return Ok(json_data),
+                                    Err(e) => println!("Error parsing JSON: {}", e),  
+                                }
+                            },
+                            Err(e) => println!("Error decompressing: {}", e),  
+                        }
                     }
                 }
             }
         }
     }
 
-    Err("Could not find memo in transaction logs".into())
+    Err("Could not find or process memo in transaction logs".into())
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
