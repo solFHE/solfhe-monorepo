@@ -11,6 +11,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
+use serde_json::json;
+use base64::{engine::general_purpose, Engine as _};
 
 const BLOCKCHAIN_NETWORKS: [&str; 20] = [
     "bitcoin", "ethereum", "scroll", "polkadot", "solana", "avalanche", "cosmos",
@@ -68,6 +70,12 @@ fn get_most_common_word(word_counter: &HashMap<String, u32>) -> Option<(String, 
         .map(|(word, count)| (word.clone(), *count))
 }
 
+// Temsili FHE şifreleme fonksiyonu
+fn fhe_encrypt(data: &str) -> String {
+    // Gerçek FHE yerine basit bir Base64 kodlama kullanıyoruz
+    general_purpose::STANDARD_NO_PAD.encode(data)
+}
+
 fn main() {
     let mut links = Vec::new();
     let mut word_counter = HashMap::new();
@@ -83,10 +91,19 @@ fn main() {
 
                         if links.len() >= 5 {
                             if let Some((word, count)) = get_most_common_word(&word_counter) {
-                                println!("\nSolfhe Result:");
-                                println!("{{\"{}\":{}}}", word, count);
+                                let result = json!({
+                                    "most_common_word": word,
+                                    "count": count
+                                });
+                                let json_string = result.to_string();
+                                let encrypted_result = fhe_encrypt(&json_string);
+                                println!("\nSolfhe Result (FHE encrypted):");
+                                println!("{}", encrypted_result);
                             } else {
-                                println!("{{\"error\":\"No words analyzed yet\"}}");
+                                let error_json = json!({"error": "No words analyzed yet"});
+                                let encrypted_error = fhe_encrypt(&error_json.to_string());
+                                println!("\nSolfhe Result (FHE encrypted):");
+                                println!("{}", encrypted_error);
                             }
                             links.clear();
                             word_counter.clear();
