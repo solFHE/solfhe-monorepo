@@ -6,7 +6,7 @@ extract_links_from_chrome metodu, Chrome'un geçmiş veritabanından son 5 URL'y
 analyze_link metodu, her bir linki ayrıştırır ve içindeki anlamlı kelimeleri (özellikle blockchain ağı isimlerini) sayar.
 get_most_common_word ve to_json metotları, en sık kullanılan kelimeyi bulur ve JSON formatında çıktı üretir.
 run metodu, sürekli çalışan bir döngü içinde her 60 saniyede bir yeni linkleri kontrol eder. */
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 use std::thread;
@@ -14,11 +14,16 @@ use std::time::Duration;
 use serde_json::{json, Value};
 use base64::{Engine as _, engine::general_purpose};
 use rusqlite::Connection;
+use url::Url;
 
 const BLOCKCHAIN_NETWORKS: [&str; 20] = [
     "bitcoin", "ethereum", "scroll", "polkadot", "solana", "avalanche", "cosmos",
     "algorand", "mina", "chainlink", "uniswap", "aave", "compound", "maker",
     "polygon", "binance", "tron", "wormhole", "stellar", "filecoin"
+];
+
+const IGNORED_WORDS: [&str; 6] = [
+    "http", "https", "www", "com", "org", "net"
 ];
 
 fn get_chrome_history_path() -> PathBuf {
@@ -52,13 +57,34 @@ fn extract_links_from_chrome() -> Vec<String> {
     urls
 }
 
-fn analyze_link(link: &str, word_counter: &mut HashMap<String, u32>) {
-    let words: Vec<&str> = link.split(|c: char| !c.is_alphanumeric())
-        .filter(|&word| !word.is_empty())
-        .collect();
+fn extract_keywords_from_url(url: &str) -> Vec<String> {
+    let ignored_words: HashSet<_> = IGNORED_WORDS.iter().map(|&s| s.to_string()).collect();
+    
+    if let Ok(parsed_url) = Url::parse(url) {
+        let domain = parsed_url.domain().unwrap_or("");
+        let path = parsed_url.path();
+        
+        let keywords: Vec<String> = domain.split('.')
+            .chain(path.split('/'))
+            .filter_map(|segment| {
+                if segment.is_empty() || ignored_words.contains(segment.to_lowercase().as_str()) {
+                    None
+                } else {
+                    Some(segment.to_lowercase())
+                }
+            })
+            .collect();
+        
+        keywords
+    } else {
+        Vec::new()
+    }
+}
 
-    for word in words {
-        let word = word.to_lowercase();
+fn analyze_link(link: &str, word_counter: &mut HashMap<String, u32>) {
+    let keywords = extract_keywords_from_url(link);
+
+    for word in keywords {
         if BLOCKCHAIN_NETWORKS.contains(&word.as_str()) || word.len() > 3 {
             *word_counter.entry(word).or_insert(0) += 1;
         }
