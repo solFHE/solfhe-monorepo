@@ -11,11 +11,20 @@ use std::fs;
 use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
-use serde_json::{json, Value};
+use serde_json::json;
 use rusqlite::Connection;
 use url::Url;
 use sha2::{Sha256, Digest};
 use base64::{Engine as _, engine::general_purpose};
+use solana_sdk::{
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+    commitment_config::CommitmentConfig,
+    system_instruction,
+};
+use solana_client::rpc_client::RpcClient;
+use spl_token::{instruction as spl_instruction, native_mint};
+use spl_associated_token_account::instruction as spl_associated_token_instruction;
 
 const BLOCKCHAIN_NETWORKS: [&str; 20] = [
     "bitcoin", "ethereum", "scroll", "polkadot", "solana", "avalanche", "cosmos",
