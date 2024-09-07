@@ -15,6 +15,7 @@ use std::thread;
 use std::time::Duration;
 use serde_json::{json, Value};
 use rusqlite::Connection;
+use solana_transaction_status::option_serializer::OptionSerializer;
 use url::Url;
 use sha2::{Sha256, Digest};
 use base64::{Engine as _, engine::general_purpose};
@@ -190,9 +191,9 @@ fn transfer_compressed_hash(
 
 fn retrieve_and_decompress_hash(client: &RpcClient, signature: &Signature) -> Result<Value, Box<dyn std::error::Error>> {
     let transaction = client.get_transaction(signature, UiTransactionEncoding::Json)?;
-
+    
     if let Some(meta) = transaction.transaction.meta {
-        if let Some(log_messages) = meta.log_messages {
+        if let OptionSerializer::Some(log_messages) = meta.log_messages {
             for log in log_messages {
                 if log.starts_with("Program log: Memo") {
                     if let Some(start_index) = log.find("): ") {
