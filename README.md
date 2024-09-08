@@ -57,6 +57,19 @@ The Solfhe Analyzer follows a modular architecture, comprised of the following k
 5. **Persistence Layer**: Handles local storage of processed data and configuration.
 6. **Execution Controller**: Orchestrates the overall flow and timing of operations.
 
+| Component | Function | Key Technologies |
+|-----------|----------|-------------------|
+| URL Extractor | Retrieves recent URLs from Chrome history | SQLite, Rusqlite |
+| Keyword Analyzer | Processes URLs to extract and count significant terms | Custom NLP algorithms, Rust standard library |
+| ZK Compressor | Compresses data with added privacy layer | Custom encryption, SHA-256, AES-256 |
+| Solana Interface | Manages blockchain interactions for data storage and retrieval | Solana SDK, RPC client |
+| Data Persistor | Handles local storage of processed data | Serde, JSON |
+| Execution Controller | Orchestrates the analysis cycle | Rust's async/await, Tokio |
+| Configuration Manager | Manages system settings | TOML parser |
+| Error Handler | Provides robust error management across the system | Custom error types, Result<T, E> |
+| Logger | Records system events and errors | Log crate |
+| Python Integration | Executes additional data processing scripts | Python subprocess management |
+
 ## Features
 
 - Chrome History Analysis
@@ -252,6 +265,10 @@ A: Currently, only Chrome is supported, but there are plans to extend support to
 - **RPC (Remote Procedure Call)**: A protocol that one program can use to request a service from a program located on another computer in a network.
 - **SQLite**: A C-language library that implements a small, fast, self-contained, high-reliability, full-featured, SQL database engine.
 - **Tokenization**: The process of breaking a stream of text into words, phrases, symbols, or other meaningful elements called tokens.
+
+## Transaction Link:
+https://explorer.solana.com/tx/3hzAmJYfNWYZEiAQLGDUCJqbspREDUXiqoi5Y8onGNtQTHRCpa2xz18s8h4c7iZ79c7hLb6hEMuWaqzHdCToukXq?cluster=custom
+
 
 ## References
 
