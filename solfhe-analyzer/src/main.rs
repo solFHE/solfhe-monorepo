@@ -134,7 +134,7 @@ fn create_solana_account() -> Keypair {
 fn airdrop_sol(client: &RpcClient, pubkey: &Pubkey, amount: u64) -> Result<(), Box<dyn std::error::Error>> {
     let sig = client.request_airdrop(pubkey, amount)?;
     client.confirm_transaction(&sig)?;
-    println!("Airdrop request sent for {} lamports", amount);
+    println!("✈️ Airdrop request sent for {} lamports", amount);
     
     thread::sleep(Duration::from_secs(5));
     
@@ -193,8 +193,8 @@ fn transfer_compressed_hash(
     );
     
     let signature = client.send_and_confirm_transaction(&transaction)?;
-    println!("Successfully transferred compressed hash. Transaction signature: {}", signature);
-    println!("Transaction link: https://explorer.solana.com/tx/{}?cluster=custom", signature);
+    println!("🏆 Successfully transferred compressed hash. Transaction signature: {}", signature);
+    println!("⛓️✅ Transaction link: https://explorer.solana.com/tx/{}?cluster=custom", signature);
 
     print_formatted_json(original_json, "Original ");
 
