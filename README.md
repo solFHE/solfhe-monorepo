@@ -131,16 +131,17 @@ The Solfhe Analyzer can be configured via the `config.toml` file. Key configurat
 - `minimum_keyword_length`: Minimum length for a word to be considered a keyword
 - `compression_level`: ZK compression level (1-9, where 9 is maximum compression)
 
-## Usage
+## ⚙️ Usage
 
 1. Start the Solana validator (if using a local network):
-   ```
-   solana-test-validator
+   ```rust
+   cargo run
    ```
 
-2. Run the Solfhe Analyzer:
-   ```
-   cargo run --release
+2. Run the front-end:
+   ```bash
+   npm i
+   npm run dev
    ```
 
 3. Monitor the output in the terminal for analysis results and blockchain interactions.
