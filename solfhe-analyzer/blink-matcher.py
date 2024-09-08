@@ -7,6 +7,8 @@ def read_json_file(file_path):
 
 blink_links = {
     "superteam": "https://dial.to/developer?url=http://localhost:3001/api/action&cluster=mainnet",  # Superteam linki
+    "superteamtr": "https://dial.to/developer?url=http://localhost:3001/api/action&cluster=mainnet",  # Superteamtr linki
+    "earn": "https://dial.to/developer?url=http://localhost:3001/api/action&cluster=mainnet",  # Earn linki
     "zk-lokomotive": "https://dial.to/developer?url=http://localhost:3000/api/action&cluster=mainnet"  # zk-Lokomotive linki
 }
 
